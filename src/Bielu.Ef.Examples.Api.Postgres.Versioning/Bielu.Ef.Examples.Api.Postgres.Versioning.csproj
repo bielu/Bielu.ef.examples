@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.2" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageReference Include="Bielu.EntityFramework.Extensions.Versioning" Version="1.0.0-beta.639121962490436280" />
+    <PackageReference Include="Bielu.EntityFramework.Extensions.Versioning.Abstractions" Version="1.0.0-beta.639121962490436280" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bielu.Ef.Examples.ServiceDefaults\Bielu.Ef.Examples.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Bielu.Ef.Examples.Versioning\Bielu.Ef.Examples.Versioning.csproj" />
+  </ItemGroup>
+
+</Project>

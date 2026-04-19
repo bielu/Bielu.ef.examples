@@ -28,4 +28,12 @@ builder.AddProject<Projects.Bielu_Ef_Examples_Api_Postgres>("api-postgres")
     .WithReference(database)
     .WaitFor(database);
 
+// Second API service that consumes the same Postgres database. It demonstrates
+// the bielu EF Core versioning library on Postgres — its ContentDbContext
+// owns its own table set (Contents) and is independent from the multi-context
+// example above, so they can happily coexist on the same logical database.
+builder.AddProject<Projects.Bielu_Ef_Examples_Api_Postgres_Versioning>("api-postgres-versioning")
+    .WithReference(database)
+    .WaitFor(database);
+
 builder.Build().Run();

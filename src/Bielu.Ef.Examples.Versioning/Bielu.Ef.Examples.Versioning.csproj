@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
+    <PackageReference Include="Bielu.EntityFramework.Extensions.Versioning" Version="1.0.0-beta.639121962490436280" />
+    <PackageReference Include="Bielu.EntityFramework.Extensions.Versioning.Abstractions" Version="1.0.0-beta.639121962490436280" />
+  </ItemGroup>
+
+</Project>
