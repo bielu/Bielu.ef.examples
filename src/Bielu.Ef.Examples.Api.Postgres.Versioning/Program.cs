@@ -1,5 +1,7 @@
+using Bielu.EntityFramework.Extensions.Versioning;
 using Bielu.EntityFramework.Extensions.Versioning.Abstractions;
 using Bielu.EntityFramework.Extensions.Versioning.Registration;
+using Bielu.EntityFramework.Extensions.Versioning.Saving;
 using Bielu.Ef.Examples.Versioning;
 using Microsoft.EntityFrameworkCore;
 
@@ -137,7 +139,72 @@ app.MapDelete("/content/{id:guid}", async (
 })
 .WithName("SoftDeleteContent");
 
+// POST /content/batch                  — save multiple versions in a single round-trip.
+//
+// Each item targets its own aggregate (by EntityId) and gets its own
+// EffectiveAt timestamp; the whole batch is persisted in one SaveChanges,
+// so either every version is written or none of them are. Items missing
+// EffectiveAt fall back to the current clock time, mirroring the single-item
+// POST endpoint above. The response preserves request order and reports the
+// resulting VersionKind for each aggregate.
+//
+// Duplicate handling: SaveManyAsync does NOT deduplicate items inside a
+// batch and — unlike the single-item path — it does NOT call the per-write
+// "EffectiveAt collision" check. Sending two items targeting the same
+// EntityId with different EffectiveAt values produces two distinct versions
+// with correctly classified Kind (the engine tracks the running max
+// EffectiveAt in-memory). Sending two items with the same EntityId AND same
+// EffectiveAt inserts two rows with different VersionIds — the
+// (EntityId, EffectiveAt, VersionId) unique index allows this — and a later
+// GetCurrentAsync call will tie-break on VersionNumber. Reusing the same
+// payload object reference for two items is collapsed by EF Core change
+// tracking into a single inserted row even though two results are returned.
+app.MapPost("/content/batch", async (
+    BatchSaveRequest request,
+    ContentDbContext db,
+    IVersioningClock clock) =>
+{
+    if (request?.Items is null || request.Items.Count == 0)
+    {
+        return Results.BadRequest(new { error = "At least one item is required." });
+    }
+
+    for (var index = 0; index < request.Items.Count; index++)
+    {
+        if (request.Items[index].Payload is null)
+        {
+            return Results.BadRequest(new { error = $"Item at index {index} is missing a payload." });
+        }
+    }
+
+    var now = clock.UtcNow;
+    var writeRequests = request.Items
+        .Select(item => new VersionWriteRequest<Content, Guid>(
+            item.Id,
+            item.EffectiveAt ?? now,
+            item.Payload ?? new Content()))
+        .ToArray();
+
+    var results = await db.SaveManyAsync<Content, Guid, Guid>(writeRequests);
+
+    return Results.Ok(results.Select(result => new
+    {
+        result.Kind,
+        result.Entity.EntityId,
+        result.Entity.VersionId,
+        result.Entity.VersionNumber,
+        result.Entity.EffectiveAt,
+        result.Entity.RecordedAt
+    }));
+})
+.WithName("SaveContentVersionsBatch");
+
 app.Run();
+
+// Request shapes for the batch endpoint. Kept as top-level records so the
+// minimal-API model binder (and OpenAPI document) can describe them cleanly.
+internal sealed record BatchSaveItem(Guid Id, DateTimeOffset? EffectiveAt, Content Payload);
+internal sealed record BatchSaveRequest(IReadOnlyList<BatchSaveItem> Items);
 
 // Make the implicit Program class visible to the AppHost's source generator.
 public partial class Program;

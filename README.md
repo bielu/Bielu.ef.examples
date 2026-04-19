@@ -238,10 +238,59 @@ dashboard.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST   | `/content/{id}?effectiveAt=...` | Save a new version (Initial / Current / Archive depending on the timeline) |
+| POST   | `/content/batch` | Save many versions (across one or many aggregates) in a single transactional round-trip via `SaveManyAsync` |
 | GET    | `/content/{id}?asOf=...` | Get the current version (or the version effective at a past timestamp) |
 | GET    | `/content/{id}/history` | Full ordered timeline for the aggregate |
 | GET    | `/content/{id}/count` | Total number of versions for the aggregate |
 | DELETE | `/content/{id}?effectiveAt=...` | Write a soft-delete tombstone preserving history |
+
+### Batch updates
+
+`POST /content/batch` writes many versions in a single transaction by
+forwarding the request to `VersionedDbContext.SaveManyAsync`. Each item
+targets its own aggregate (by `id`) and may carry its own `effectiveAt`
+timestamp; omitted timestamps fall back to "now". Either every version is
+persisted or none of them are.
+
+```json
+{
+  "items": [
+    { "id": "11111111-1111-1111-1111-111111111111", "payload": { "title": "Post A v2", "body": "..." } },
+    { "id": "22222222-2222-2222-2222-222222222222", "effectiveAt": "2026-01-01T00:00:00Z", "payload": { "title": "Post B v1", "body": "..." } }
+  ]
+}
+```
+
+The response preserves request order and reports the resulting `Kind`
+(`Initial` / `Current` / `Archive`) plus the assigned `versionId`,
+`versionNumber`, `effectiveAt` and `recordedAt` for each aggregate.
+
+#### Duplicate items in the same batch
+
+`SaveManyAsync` is intentionally permissive — it does **not** deduplicate
+items and, unlike the single-item `SaveAsync`, it does **not** run the
+per-write "same `effectiveAt` already exists" collision check. The
+behaviour you can rely on is:
+
+- **Two items targeting the same aggregate with different `effectiveAt`** —
+  both versions are written. `Kind` is classified correctly because the
+  engine tracks the running max `effectiveAt` per aggregate in-memory while
+  it walks the batch, so an item slotted before the running max is
+  reported as `Archive`.
+- **Two items targeting the same aggregate with the same `effectiveAt`** —
+  both rows are inserted with distinct `versionId`s; the
+  `(EntityId, EffectiveAt, VersionId)` unique index allows this. A
+  subsequent `GetCurrentAsync` call resolves the winner by tie-breaking on
+  `versionNumber`. The single-item endpoint would have rejected this via
+  `AnyEffectiveAtCollisionAsync`; the batch endpoint will not.
+- **Re-using the same `Content` payload object reference for two items** —
+  EF Core change tracking collapses them to a single inserted row, but the
+  response still contains two `VersionSaveResult` entries pointing at the
+  same `Content` instance.
+
+In short, batches favour throughput over idempotency. If you need
+"duplicate-safe" semantics, dedupe upstream (for example by
+`(id, effectiveAt)`) before sending the request.
 
 ### Schema bootstrap
 
