@@ -1,0 +1,47 @@
+## .NET build artifacts
+bin/
+obj/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Visual Studio cache/options
+.vs/
+
+## Rider
+.idea/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## NuGet packages
+*.nupkg
+*.snupkg
+.nuget/packages/
+
+## SQLite databases (runtime artifacts)
+*.db
+*.db-shm
+*.db-wal
+
+## Secrets
+appsettings.*.json
+!appsettings.Development.json
+
+## OS
+.DS_Store
+Thumbs.db
