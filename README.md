@@ -46,7 +46,10 @@ This repository demonstrates how to use **multiple EF Core DbContexts** in a sin
 | `Bielu.Ef.Examples.Auth` | Class Library | `AuthDbContext` — owns Users, Roles, UserRoles |
 | `Bielu.Ef.Examples.Blog` | Class Library | `BlogDbContext` — owns BlogPosts, BlogPostVersions |
 | `Bielu.Ef.Examples.Profile` | Class Library | `ProfileDbContext` — owns UserProfiles |
-| `Bielu.Ef.Examples.Api` | ASP.NET Core Web API | Demo API wiring all contexts; applies migrations on startup |
+| `Bielu.Ef.Examples.Api` | ASP.NET Core Web API | SQLite demo API wiring all contexts; applies migrations on startup |
+| `Bielu.Ef.Examples.Api.Postgres` | ASP.NET Core Web API | **Postgres** demo API wiring all contexts; uses Npgsql + Aspire client integration |
+| `Bielu.Ef.Examples.AppHost` | .NET Aspire AppHost | Orchestrates a Postgres container + pgAdmin and the Postgres API |
+| `Bielu.Ef.Examples.ServiceDefaults` | Class Library | Shared Aspire service defaults (OpenTelemetry, health checks, service discovery) |
 
 ---
 
@@ -75,10 +78,11 @@ This means:
 
 ### Prerequisites
 
-- .NET 9 SDK
+- .NET 10 SDK
 - `dotnet-ef` tool: `dotnet tool install --global dotnet-ef`
+- For the Aspire / Postgres example: a container runtime (Docker Desktop or Podman)
 
-### Run
+### Run (SQLite)
 
 ```bash
 cd src/Bielu.Ef.Examples.Api
@@ -127,6 +131,55 @@ dotnet ef migrations add <MigrationName> \
   --context ProfileDbContext \
   --output-dir Migrations
 ```
+
+---
+
+## Run (Postgres via .NET Aspire)
+
+A second example, `Bielu.Ef.Examples.Api.Postgres`, uses **PostgreSQL** instead of
+SQLite while reusing the exact same `AuthDbContext` / `BlogDbContext` /
+`ProfileDbContext` class libraries. It is orchestrated by a .NET Aspire AppHost
+that provisions a Postgres container, a database, and pgAdmin.
+
+```bash
+cd src/Bielu.Ef.Examples.AppHost
+dotnet run
+```
+
+The AppHost will:
+
+1. Pull and start a `postgres` container (with a persistent data volume)
+2. Start a `pgAdmin` container linked to that server
+3. Create the `biele-ef-examples-db` database
+4. Launch `Bielu.Ef.Examples.Api.Postgres` and inject the connection string via
+   Aspire service discovery
+5. Apply the Postgres migrations and seed the same demo data as the SQLite example
+
+Open the Aspire dashboard URL printed at startup to inspect resources, logs,
+traces and the pgAdmin endpoint.
+
+### Provider-specific migrations
+
+The class libraries (`Auth`, `Blog`, `Profile`) ship with the **SQLite** migrations.
+The **Postgres** migrations for the same contexts live in
+`src/Bielu.Ef.Examples.Api.Postgres/Migrations/{Auth,Blog,Profile}`. The Postgres
+API tells EF Core where to find them by configuring
+`UseNpgsql(npgsql => npgsql.MigrationsAssembly("Bielu.Ef.Examples.Api.Postgres"))`
+on each `DbContext`. This keeps each provider's migration history isolated.
+
+To add a new Postgres migration for a context:
+
+```bash
+# Example: AuthDbContext
+dotnet ef migrations add <MigrationName> \
+  --project src/Bielu.Ef.Examples.Api.Postgres \
+  --startup-project src/Bielu.Ef.Examples.Api.Postgres \
+  --context AuthDbContext \
+  --output-dir Migrations/Auth
+```
+
+Repeat with `--context BlogDbContext --output-dir Migrations/Blog` and
+`--context ProfileDbContext --output-dir Migrations/Profile` for the other two.
 
 ---
 
