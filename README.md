@@ -245,12 +245,22 @@ dashboard.
 
 ### Schema bootstrap
 
-The example uses `await ctx.Database.EnsureCreatedAsync()` to create the
-versioned schema on first launch. The bielu library ships no migrations of
-its own — the schema is configured purely through `ApplyVersioning<...>()`
-inside the `ContentDbContext`. In a production application you would
-generate provider-specific migrations the same way the Auth/Blog/Profile
-examples do.
+The schema for the `Content` aggregate is created from a real, source-controlled
+EF Core migration shipped inside `Bielu.Ef.Examples.Api.Postgres.Versioning/Migrations/`.
+On startup the API calls `ctx.Database.MigrateAsync()` so the table is created
+(or upgraded) automatically. The `MigrationsAssembly("Bielu.Ef.Examples.Api.Postgres.Versioning")`
+hook on the `UseNpgsql` options keeps this Postgres history isolated from any
+other provider you might use the same `ContentDbContext` with.
+
+To add a new Postgres migration for the versioning context:
+
+```bash
+dotnet ef migrations add <MigrationName> \
+  --project src/Bielu.Ef.Examples.Api.Postgres.Versioning \
+  --startup-project src/Bielu.Ef.Examples.Api.Postgres.Versioning \
+  --context ContentDbContext \
+  --output-dir Migrations
+```
 
 ---
 

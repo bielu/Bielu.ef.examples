@@ -36,12 +36,14 @@ builder.Services.AddOpenApi();
 // ------------------------------------------------------------------------------------
 
 const string ConnectionName = "biele-ef-examples-db";
+var migrationsAssembly = typeof(Program).Assembly.GetName().Name!;
 
 builder.Services.AddBieluVersioning();
 
 builder.AddNpgsqlDbContext<ContentDbContext>(
     connectionName: ConnectionName,
-    configureDbContextOptions: options => options.UseNpgsql());
+    configureDbContextOptions: options =>
+        options.UseNpgsql(npgsql => npgsql.MigrationsAssembly(migrationsAssembly)));
 
 var app = builder.Build();
 
@@ -55,17 +57,15 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // ------------------------------------------------------------------------------------
-// The schema for the versioned aggregate is created on first launch via
-// EnsureCreatedAsync. The bielu library ships no migrations of its own — the
-// model is configured purely through ApplyVersioning<...>() inside the
-// ContentDbContext, so EnsureCreated is enough to demonstrate the library.
-// In a real application you would generate per-provider migrations the same
-// way the Auth/Blog/Profile examples do.
+// Apply Postgres migrations on startup. The migrations live inside this
+// project under /Migrations and are wired through MigrationsAssembly above so
+// the bielu-defined ContentDbContext model produces a real, source-controlled
+// Postgres schema (instead of relying on EnsureCreated).
 // ------------------------------------------------------------------------------------
 using (var scope = app.Services.CreateScope())
 {
     var ctx = scope.ServiceProvider.GetRequiredService<ContentDbContext>();
-    await ctx.Database.EnsureCreatedAsync();
+    await ctx.Database.MigrateAsync();
 }
 
 // ------------------------------------------------------------------------------------
