@@ -2,11 +2,13 @@
   <Folder Name="/src/">
     <Project Path="src/Bielu.Ef.Examples.Api/Bielu.Ef.Examples.Api.csproj" />
     <Project Path="src/Bielu.Ef.Examples.Api.Postgres/Bielu.Ef.Examples.Api.Postgres.csproj" />
+    <Project Path="src/Bielu.Ef.Examples.Api.Postgres.Versioning/Bielu.Ef.Examples.Api.Postgres.Versioning.csproj" />
     <Project Path="src/Bielu.Ef.Examples.AppHost/Bielu.Ef.Examples.AppHost.csproj" />
     <Project Path="src/Bielu.Ef.Examples.Auth/Bielu.Ef.Examples.Auth.csproj" />
     <Project Path="src/Bielu.Ef.Examples.Blog/Bielu.Ef.Examples.Blog.csproj" />
     <Project Path="src/Bielu.Ef.Examples.Profile/Bielu.Ef.Examples.Profile.csproj" />
     <Project Path="src/Bielu.Ef.Examples.ServiceDefaults/Bielu.Ef.Examples.ServiceDefaults.csproj" />
     <Project Path="src/Bielu.Ef.Examples.Shared/Bielu.Ef.Examples.Shared.csproj" />
+    <Project Path="src/Bielu.Ef.Examples.Versioning/Bielu.Ef.Examples.Versioning.csproj" />
   </Folder>
 </Solution>

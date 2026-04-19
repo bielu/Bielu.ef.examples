@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Bielu.Ef.Examples.Api.Postgres\Bielu.Ef.Examples.Api.Postgres.csproj" />
+    <ProjectReference Include="..\Bielu.Ef.Examples.Api.Postgres.Versioning\Bielu.Ef.Examples.Api.Postgres.Versioning.csproj" />
   </ItemGroup>
 
 </Project>

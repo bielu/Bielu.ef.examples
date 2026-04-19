@@ -48,6 +48,8 @@ This repository demonstrates how to use **multiple EF Core DbContexts** in a sin
 | `Bielu.Ef.Examples.Profile` | Class Library | `ProfileDbContext` — owns UserProfiles |
 | `Bielu.Ef.Examples.Api` | ASP.NET Core Web API | SQLite demo API wiring all contexts; applies migrations on startup |
 | `Bielu.Ef.Examples.Api.Postgres` | ASP.NET Core Web API | **Postgres** demo API wiring all contexts; uses Npgsql + Aspire client integration |
+| `Bielu.Ef.Examples.Versioning` | Class Library | `ContentDbContext` + `Content` aggregate using the [bielu EF Core versioning library](https://github.com/bielu/bielu.entityframework.extensions) |
+| `Bielu.Ef.Examples.Api.Postgres.Versioning` | ASP.NET Core Web API | **Postgres** demo API for the bielu versioning library; exposes Save/Get/history/count endpoints |
 | `Bielu.Ef.Examples.AppHost` | .NET Aspire AppHost | Orchestrates a Postgres container + pgAdmin and the Postgres API |
 | `Bielu.Ef.Examples.ServiceDefaults` | Class Library | Shared Aspire service defaults (OpenTelemetry, health checks, service discovery) |
 
@@ -180,6 +182,85 @@ dotnet ef migrations add <MigrationName> \
 
 Repeat with `--context BlogDbContext --output-dir Migrations/Blog` and
 `--context ProfileDbContext --output-dir Migrations/Profile` for the other two.
+
+---
+
+## Content versioning on Postgres (bielu EF versioning library)
+
+A third example, `Bielu.Ef.Examples.Api.Postgres.Versioning`, demonstrates the
+[`Bielu.EntityFramework.Extensions.Versioning`](https://github.com/bielu/bielu.entityframework.extensions)
+library running on PostgreSQL. The library adds **provider-agnostic content
+versioning** to any EF Core model — every aggregate keeps a stable
+`EntityId` while each individual revision gets its own `VersionId`, with
+support for inserting late / out-of-order updates between two existing
+versions. No temporal tables, no triggers, no provider-specific SQL.
+
+The example is split into two projects:
+
+| Project | Type | Responsibility |
+|---------|------|----------------|
+| `Bielu.Ef.Examples.Versioning` | Class Library | Defines the `Content` versioned aggregate (extends `VersionedEntity<Guid, Guid>`) and `ContentDbContext` (derives from `VersionedDbContext` and calls `modelBuilder.ApplyVersioning<Content, Guid, Guid>(new VersioningOptions())`) |
+| `Bielu.Ef.Examples.Api.Postgres.Versioning` | ASP.NET Core Web API | Wires the context against the same Postgres container provisioned by the AppHost; exposes minimal-API endpoints for write/read/history/count/soft-delete |
+
+### Wiring (Aspire + bielu)
+
+The bielu interceptor is registered as a normal `IInterceptor` and is
+auto-discovered by EF Core through `UseApplicationServiceProvider`, which
+Aspire's `AddNpgsqlDbContext` already wires up. The relevant lines in
+`Program.cs` are:
+
+```csharp
+builder.Services.AddBieluVersioning();
+
+builder.AddNpgsqlDbContext<ContentDbContext>(
+    connectionName: "biele-ef-examples-db",
+    configureDbContextOptions: options => options.UseNpgsql());
+```
+
+Because `AddBieluVersioning()` is independent from the DbContext
+registration, you can keep using Aspire's component-style registration
+without giving up provider portability.
+
+### Run
+
+The AppHost launches both Postgres APIs against the same Postgres database:
+
+```bash
+cd src/Bielu.Ef.Examples.AppHost
+dotnet run
+```
+
+The new service is exposed as `api-postgres-versioning` in the Aspire
+dashboard.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST   | `/content/{id}?effectiveAt=...` | Save a new version (Initial / Current / Archive depending on the timeline) |
+| GET    | `/content/{id}?asOf=...` | Get the current version (or the version effective at a past timestamp) |
+| GET    | `/content/{id}/history` | Full ordered timeline for the aggregate |
+| GET    | `/content/{id}/count` | Total number of versions for the aggregate |
+| DELETE | `/content/{id}?effectiveAt=...` | Write a soft-delete tombstone preserving history |
+
+### Schema bootstrap
+
+The schema for the `Content` aggregate is created from a real, source-controlled
+EF Core migration shipped inside `Bielu.Ef.Examples.Api.Postgres.Versioning/Migrations/`.
+On startup the API calls `ctx.Database.MigrateAsync()` so the table is created
+(or upgraded) automatically. The `MigrationsAssembly("Bielu.Ef.Examples.Api.Postgres.Versioning")`
+hook on the `UseNpgsql` options keeps this Postgres history isolated from any
+other provider you might use the same `ContentDbContext` with.
+
+To add a new Postgres migration for the versioning context:
+
+```bash
+dotnet ef migrations add <MigrationName> \
+  --project src/Bielu.Ef.Examples.Api.Postgres.Versioning \
+  --startup-project src/Bielu.Ef.Examples.Api.Postgres.Versioning \
+  --context ContentDbContext \
+  --output-dir Migrations
+```
 
 ---
 
